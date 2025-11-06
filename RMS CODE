@@ -1,0 +1,183 @@
+from datetime import datetime
+import mysql.connector as db
+
+# Database connection
+con = db.connect(user="root", password="Anji@123", host="localhost", database="project1")
+cur = con.cursor()
+
+# Fetching data from tables
+cur.execute("select * from subitems")
+data = cur.fetchall()
+cur.execute("select * from mainitems")
+data1 = cur.fetchall()
+cur.execute("select * from admin")
+data2 = cur.fetchall()
+cur.execute("select * from customer")
+data3 = cur.fetchall()
+
+# Queries
+insert_query = "insert into customer values(%s,%s,%s,%s,%s)"
+admin_mainmenu = "insert into Mainitems (ITEM_NAME) values(%s)"
+admin_submenu = "insert into subitems values(%s,%s,%s,%s)"
+
+# Setup
+t = True
+listofitems = [i for i in range(1, len(data1) + 1)]
+dt = datetime.now()
+time_only = dt.strftime("%H:%M:%S")
+date_only = dt.date()
+x = []
+
+# Menu function
+def mainmanu():
+    print("1) View Menu\n2) View Cart\n3) Modify cart\n4) Bill")
+
+# Login
+print("1) Admin\n2) User")
+login = int(input())
+
+if login == 1:
+    adminlogin = int(input("Enter your login number: "))
+    adminpassword = input("Enter login password: ")
+
+if login == 2:
+    customer_name = input("Enter customer name: ")
+    customer_no = input("Enter customer number: ")
+
+# Main Loop
+while True:
+    if login == 1:
+        if adminlogin == data2[0][0] and adminpassword == data2[0][1]:
+            print("Login success\n")
+            print("1) Add Menu\n2) Modify Menu\n3) View All Orders\n4) Day wise Profit")
+            adminoption = int(input())
+
+            if adminoption == 1:
+                print("1) Add item to Main menu\n2) Add item to Subitems")
+                adminmenu = int(input("Select the option: "))
+
+                if adminmenu == 1:
+                    menu_input = input("Enter the item name: ")
+                    cur.execute(admin_mainmenu, [str(menu_input)])
+                    con.commit()
+                    break
+
+                if adminmenu == 2:
+                    for i in data1:
+                        print(f"{i[0]}) {i[1]}")
+                    if t:
+                        print("Select one option")
+                    main_item_id = int(input())
+                    for i in data:
+                        if main_item_id == i[0]:
+                            subitem_id = i[1]
+                    subitem_name = input("Enter Item name: ")
+                    subitem_price = input("Enter item price: ")
+                    cur.execute(admin_submenu, [int(main_item_id), float(subitem_id + 0.1), str(subitem_name), str(subitem_price)])
+                    con.commit()
+                    break
+
+            elif adminoption == 3:
+                cur.execute("select date, item_name from customer inner join subitems on customer.item_id = subitems.item_no")
+                All_orders = cur.fetchall()
+                for i in All_orders:
+                    print(f"{i[0]}  {i[1]}")
+                break
+
+            elif adminoption == 4:
+                cur.execute("select date, price from customer inner join subitems on customer.item_id = subitems.item_no")
+                All_days_profit = cur.fetchall()
+                day_wise_profit = {}
+                for k, v in All_days_profit:
+                    if k in day_wise_profit:
+                        day_wise_profit[k] += v
+                    else:
+                        day_wise_profit[k] = v
+                print("*" * 20)
+                print("   Date      Profit")
+                for k, v in day_wise_profit.items():
+                    print(f"{k}    {v}")
+                break
+        else:
+            print("Enter correct login details")
+            break
+
+    elif login == 2:
+        mainmanu()
+        mainmenu = int(input())
+
+        if mainmenu == 1:
+            while True:
+                for i in data1:
+                    print(f"{i[0]}) {i[1]}")
+                if t:
+                    print("Select one option")
+                    y = int(input())
+                    t = False
+                else:
+                    print("Do you want to order one more? --> Yes or No")
+                    e = input()
+                    if e == "No":
+                        break
+                    else:
+                        print("Select one option")
+                        y = int(input())
+
+                if y not in listofitems:
+                    print("Select correct option")
+                    t = True
+                else:
+                    for i in data:
+                        if i[0] == y:
+                            print(f"{i[1]})  {i[2]:<14}-- {i[3]}")
+                    mainitems = float(input())
+                    for i in data:
+                        if i[1] == mainitems:
+                            x.append(mainitems)
+                            t = True
+                    else:
+                        if t:
+                            t = False
+                        else:
+                            print("Select correct option")
+
+        elif mainmenu == 2:
+            for j in range(len(x)):
+                for k in data:
+                    if k[1] == x[j]:
+                        print(f"{j + 1}) {k[2]:<17}-- {k[3]}")
+
+        elif mainmenu == 3:
+            for j in range(len(x)):
+                for k in data:
+                    if k[1] == x[j]:
+                        print(f"{j + 1}) {k[2]:<17}-- {k[3]}")
+            print()
+            print("Which one do you want to delete from Cart")
+            D_cart = int(input())
+            popitem = x.pop(D_cart - 1)
+            print(x)
+
+        elif mainmenu == 4:
+            totalbill = 0
+            print("*" * 20)
+            print("  Items     Price")
+            for j in x:
+                for k in data:
+                    if k[1] == j:
+                        totalbill += k[3]
+                        print(f"{k[2]:<14}-- {k[3]}")
+                        cur.execute(insert_query, [str(date_only), str(time_only), str(customer_name), int(customer_no), float(k[1])])
+                        con.commit()
+            print("-" * 20)
+            print(f"TOTAL BILL    -- {totalbill}")
+            break
+
+        else:
+            print("Select correct option")
+    else:
+        print("Select correct option")
+
+# Cleanup
+cur.close()
+con.close()
